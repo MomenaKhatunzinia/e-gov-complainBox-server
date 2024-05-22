@@ -48,23 +48,16 @@ const client = new MongoClient(uri, {
 
   })
   
-  app.post('/Complains', async(req, res)=>
-  {
-    const addComplain = req.body;
-    console.log(addComplain)
-    const result = await ComplainCollection.insertOne(addComplain);
+  app.get('/complains:email', async (req, res) => {
+    const email = req.params.email; 
+    const query = { email };
+    console.log(email)
+    const result = await ComplainCollection.findOne(query);
+    console.log(result)
     res.send(result);
-  })
-
-  app.get('/Complains', async(req, res)=>
-  {
-    const cursor = ComplainCollection.find();
-    const result = await cursor.toArray();
-    res.send(result);
-
-  })
-
-
+    
+  });
+  
 
   app.listen(port, () => {
     console.log(`running ${ port }`)
