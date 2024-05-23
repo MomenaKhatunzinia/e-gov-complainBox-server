@@ -1,64 +1,99 @@
 const express = require('express');
 const cors = require('cors');
-
+const multer = require('multer');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
-require ('dotenv').config()
+require('dotenv').config();
+
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
+
 const app = express();
 const port = process.env.PORT || 5000;
-// kxJGmOqAfFgsnlDA
-// e-gov-complainBox
+
 app.use(cors());
 app.use(express.json());
 
-const uri = "mongodb+srv://e-gov-complainBox:kxJGmOqAfFgsnlDA@cluster0.lhomilp.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+const uri = process.env.MONGO_URI;
 
 const client = new MongoClient(uri, {
-    serverApi: {
-      version: ServerApiVersion.v1,
-      strict: true,
-      deprecationErrors: true,
-    }
-  });
-
-  const dbConnect = async () => {
-    try {
-      client.connect()
-      console.log('DB Connected Successfully✅')
-    } catch (error) {
-      console.log(error.name, error.message)
-    }
+  serverApi: {
+    version: ServerApiVersion.v1,
+    strict: true,
+    deprecationErrors: true,
   }
-  dbConnect()
+});
 
-  const ComplainCollection = client.db("ComplainBox").collection('complainBox')
+const dbConnect = async () => {
+  try {
+    await client.connect();
+    console.log('DB Connected Successfully✅');
+  } catch (error) {
+    console.log(error.name, error.message);
+  }
+}
+dbConnect();
 
-  app.post('/Complains', async(req, res)=>
-  {
+const ComplainCollection = client.db("ComplainBox").collection('complainBox');
+
+app.post('/Complains', upload.single('file'), async (req, res) => {
+  try {
     const addComplain = req.body;
-    console.log(addComplain)
-    const result = await ComplainCollection.insertOne(addComplain);
-    res.send(result);
-  })
+    console.log('Received complaint data:', addComplain);
 
-  app.get('/Complains', async(req, res)=>
-  {
+    if (req.file) {
+      console.log('Received file:', req.file);
+      addComplain.file = {
+        originalname: req.file.originalname,
+        mimetype: req.file.mimetype,
+        buffer: req.file.buffer
+      };
+    }
+
+    const result = await ComplainCollection.insertOne(addComplain);
+    console.log('Insert result:', result);
+
+    res.send(result);
+  } catch (error) {
+    console.error('Error inserting complaint:', error);
+    res.status(500).send({ message: 'An error occurred while adding the complaint.' });
+  }
+});
+
+app.get('/Complains', async (req, res) => {
+  try {
     const cursor = ComplainCollection.find();
     const result = await cursor.toArray();
     res.send(result);
+  } catch (error) {
+    console.error('Error fetching complaints:', error);
+    res.status(500).send({ message: 'An error occurred while fetching the complaints.' });
+  }
+});
 
-  })
-  
-  app.get('/complains:email', async (req, res) => {
-    const email = req.params.email; 
-    const query = { email };
-    console.log(email)
-    const result = await ComplainCollection.findOne(query);
-    console.log(result)
-    res.send(result);
+app.get('/complains/:email', async (req, res) => {
+  const email = req.params.email;
+
+  const query = { email: email };
+
+  try {
+    console.log('Query:', query);
+
+    const results = await ComplainCollection.find(query).toArray();
     
-  });
-  
+    console.log('Results:', results);
 
-  app.listen(port, () => {
-    console.log(`running ${ port }`)
-  })
+    if (results.length === 0) {
+      return res.status(404).send({ message: 'No complaints found for this email.' });
+    }
+
+    res.send(results);
+  } catch (error) {
+    console.error('Error fetching complaints:', error);
+    res.status(500).send({ message: 'An error occurred while fetching the complaints.' });
+  }
+});
+
+
+app.listen(port, () => {
+  console.log(`running on port ${port}`);
+});
