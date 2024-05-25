@@ -43,6 +43,8 @@ const dbConnect = async () => {
 dbConnect();
 
 const ComplainCollection = client.db("ComplainBox").collection("complainBox");
+//DashBoard Admin
+const AdminCollection = client.db("AdminList").collection("Admins");
 
 app.post("/uploaded", uploadFile.single("picture"), async (req, res) => {
   console.log("File uploaded");
@@ -70,6 +72,7 @@ app.post("/Complains", uploadFile.single("file"), async (req, res) => {
 
     addComplain.upVote = 0;
     addComplain.downVote = 0;
+    addComplain.mark = 'Pending';
 
     const result = await ComplainCollection.insertOne(addComplain);
     console.log("Insert result:", result);
@@ -124,7 +127,25 @@ app.put("/Complains/:id", async (req, res) => {
   }
 });
 
-//Delete Complain
+app.put("/updateComplaint/:id", async (req, res) => {
+  const id = req.params.id;
+  const filter = { _id: new ObjectId(id) };
+  const options = { upsert: true };
+  const updatedcomplain = req.body;
+  const complain = {
+    $set: {
+      mark: updatedcomplain.mark,
+    },
+  };
+  try {
+    const result = await ComplainCollection.updateOne(filter, complain, options);
+    res.send(result);
+  } catch (error) {
+    console.error("Error updating complaint:", error);
+    res.status(500).send({ message: "An error occurred while updating the complaint." });
+  }
+});
+
 app.delete("/DeleteComplains/:id", async (req, res) => {
   const id = req.params.id;
 
@@ -143,8 +164,6 @@ app.delete("/DeleteComplains/:id", async (req, res) => {
   }
 });
 
-
-// up and down vote
 app.put('/complain/upvote/:id', async (req, res) => {
   const { id } = req.params;
   const { increment } = req.body;
@@ -161,7 +180,6 @@ app.put('/complain/upvote/:id', async (req, res) => {
   }
 });
 
-// Downvote route
 app.put('/complain/downvote/:id', async (req, res) => {
   const { id } = req.params;
   const { increment } = req.body;
@@ -177,7 +195,6 @@ app.put('/complain/downvote/:id', async (req, res) => {
     res.status(500).send({ message: 'Error updating downvote count' });
   }
 });
-
 
 app.get("/Complains", async (req, res) => {
   try {
@@ -210,6 +227,38 @@ app.get("/complains/:email", async (req, res) => {
   } catch (error) {
     console.error("Error fetching complaints:", error);
     res.status(500).send({ message: "An error occurred while fetching the complaints." });
+  }
+});
+//DashBoard post get
+
+// POST endpoint to add a new admin
+app.post("/admin", async (req, res) => {
+  try {
+   
+    const { email, post,name } = req.body;
+    console.log(email,post,name);
+    if (!email || !post || !name) {
+      return res.status(400).send({ message: "Email and post are required" });
+    }
+
+    const newAdmin = { email, post, name};
+    const result = await AdminCollection.insertOne(newAdmin);
+    console.log(result)
+    res.send(result);
+  } catch (error) {
+    console.error("Error adding admin:", error);
+    res.status(500).send({ message: "An error occurred while adding the admin" });
+  }
+});
+
+// GET endpoint to fetch all admins
+app.get("/admins", async (req, res) => {
+  try {
+    const admins = await AdminCollection.find().toArray();
+    res.send(admins);
+  } catch (error) {
+    console.error("Error fetching admins:", error);
+    res.status(500).send({ message: "An error occurred while fetching the admins" });
   }
 });
 
